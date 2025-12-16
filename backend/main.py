@@ -7,17 +7,16 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # For dev only. In prod, specify
+    allow_origins=["*"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
 
 @app.websocket("/ws/audio")
 async def audio_endpoint(websocket: WebSocket, rate: int = 44100):
     """Handles WebSocket connections for audio data."""
     await websocket.accept()
-    print("Client connected")
+    print(f"Client connected with sample rate: {rate}")
     analyzer = AudioAnalyzer(rate=rate)
 
     try:
@@ -29,14 +28,13 @@ async def audio_endpoint(websocket: WebSocket, rate: int = 44100):
             frequency = analyzer.process(data)
 
             # 3. Send Result
-            # Only send if we actually detected something to save bandwidth
-            if frequency > 20:
-                await websocket.send_json({
-                    "frequency": round(frequency, 2),
-                    "note": "TODO" # We'll do note mapping in frontend
-                })
+            # FIX: Send response even if 0.0 so frontend updates
+            await websocket.send_json({
+                "frequency": round(frequency, 2),
+                "note": "--"
+            })
 
     except WebSocketDisconnect:
         print("Client disconnected")
-    except RuntimeError as e:
-        print(f"Error: {e}")
+    except Exception as e:
+        print(f"Server Error: {e}")

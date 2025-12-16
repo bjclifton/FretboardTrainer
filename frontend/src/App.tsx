@@ -1,6 +1,6 @@
 // src/App.tsx
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { Button, Container, Title, Text, Card, Group, Badge, Stack, Progress, ThemeIcon } from '@mantine/core';
+import { Button, Container, Title, Text, Card, Group, Badge, Stack, Progress, ThemeIcon, Select } from '@mantine/core';
 import { IconCheck, IconMicrophone, IconMicrophoneOff } from '@tabler/icons-react';
 import useWebSocket, { ReadyState } from 'react-use-websocket';
 import { useAudioCapture } from './audio/useAudioCapture';
@@ -16,9 +16,30 @@ function App() {
 
   // Real-time Feedback
   const successStreak = useRef(0); // How many consecutive frames correct?
-  const REQUIRED_STREAK = 8; // approx 150-200ms depending on websocket rate
+  const REQUIRED_STREAK = 5; // approx 150-200ms depending on websocket rate
 
   // --- 2. Audio & Network Setup ---
+  const [audioDevices, setAudioDevices] = useState<{ value: string; label: string; }[]>([]);
+  const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
+
+  // Get audio devices
+  useEffect(() => {
+    async function getAudioDevices() {
+      try {
+        await navigator.mediaDevices.getUserMedia({ audio: true }); // Request permission
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const audioInputs = devices.filter(device => device.kind === 'audioinput');
+        setAudioDevices(audioInputs.map(device => ({ value: device.deviceId, label: device.label || `Device ${audioInputs.indexOf(device) + 1}` })));
+        if (audioInputs.length > 0) {
+          setSelectedDeviceId(audioInputs[0].deviceId);
+        }
+      } catch (err) {
+        console.error("Could not get audio devices:", err);
+      }
+    }
+    getAudioDevices();
+  }, []);
+
   // Detect sample rate once on mount
   const sampleRate = useMemo(() => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -36,9 +57,10 @@ function App() {
   });
 
   const { isListening, error, startCapture, stopCapture } = useAudioCapture({
+    deviceId: selectedDeviceId,
     onAudioData: (data) => {
-      if (readyState === ReadyState.OPEN && gameState !== 'idle') {
-        console.log(`[DEBUG] Sending audio data over WebSocket, size: ${data.byteLength}`);
+      if (readyState === ReadyState.OPEN) {
+
         sendMessage(data.buffer);
       }
     }
@@ -50,11 +72,11 @@ function App() {
     const newTarget = generatePrompt(activeStrings);
     setTarget(newTarget);
     setGameState('playing');
-    console.log('[DEBUG] nextTurn -> new target:', newTarget);
+
   }, [activeStrings]);
 
   const handleSuccess = useCallback(() => {
-    console.log('[DEBUG] handleSuccess called');
+
     setGameState('success');
     successStreak.current = 0;
 
@@ -66,27 +88,20 @@ function App() {
 
   // --- 3. The Core Game Loop (Triggered by WebSocket messages) ---
   useEffect(() => {
-    console.log(`[DEBUG] Game state changed: ${gameState}`);
-  }, [gameState]);
-
-  useEffect(() => {
-    if (lastJsonMessage) {
-      console.log('[DEBUG] Received WebSocket message:', lastJsonMessage);
-    }
     if (gameState === 'playing' && target && detectedFreq > 0) {
       const isCorrect = isCorrectPitch(detectedFreq, target.frequency, 0.03);
-      console.log(`[DEBUG] Pitch Check: Detected=${detectedFreq.toFixed(2)}Hz, Target=${target.frequency.toFixed(2)}Hz, Correct=${isCorrect}`);
+
 
       if (isCorrect) { // 3% tolerance
         successStreak.current += 1;
       } else {
         successStreak.current = 0;
       }
-      console.log(`[DEBUG] Success streak: ${successStreak.current}`);
+
 
       // Check for Win
       if (successStreak.current >= REQUIRED_STREAK) {
-        console.log('[DEBUG] Win condition met!');
+
         // eslint-disable-next-line react-hooks/set-state-in-effect
         handleSuccess();
       }
@@ -94,7 +109,7 @@ function App() {
   }, [gameState, target, detectedFreq, handleSuccess, lastJsonMessage]);
 
   const toggleGame = () => {
-    console.log('[DEBUG] toggleGame called');
+
     if (isListening) {
       stopCapture();
       setGameState('idle');
@@ -183,10 +198,19 @@ function App() {
           disabled={gameState !== 'idle'}
         />
 
+        <Select
+          label="Audio Input"
+          placeholder="Select an input device"
+          data={audioDevices}
+          value={selectedDeviceId}
+          onChange={setSelectedDeviceId}
+          disabled={isListening}
+          mb="xl"
+        />
+
         <Button
           fullWidth
           size="xl"
-          mt="xl"
           color={isListening ? 'red' : 'blue'}
           onClick={toggleGame}
           leftSection={isListening ? <IconMicrophoneOff /> : <IconMicrophone />}

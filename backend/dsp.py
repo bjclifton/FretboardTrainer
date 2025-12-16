@@ -12,26 +12,35 @@ class AudioAnalyzer:
         """Initializes the analyzer with default audio processing parameters."""
         self.rate = rate
         self.chunk = 4096
-        self.hps_cycles = 3
+        self.hps_cycles = 5
         self.silence_threshold = 500000
+
 
     def _preprocess_audio(self, audio_bytes: bytes) -> np.ndarray | None:
         """
         Decodes, checks for silence, converts, and windows the raw audio data.
         Returns windowed int16 data, or None if silent.
         """
-        # Decode Float32 data from bytes
-        data_float = np.frombuffer(audio_bytes, dtype=np.float32)
+        try:
+            # Decode Float32 data from bytes
+            data_float = np.frombuffer(audio_bytes, dtype=np.float32)
 
-        # Silence gate using RMS
-        rms = np.sqrt(np.mean(data_float**2))
-        if rms < 0.01:
+            if len(data_float) == 0:
+                return None
+
+            # Silence gate using RMS
+            rms = np.sqrt(np.mean(data_float**2))
+
+            if rms < 0.001:
+                return None
+
+            # Convert to Int16 and apply Hanning window
+            data_int = (data_float * 32767).astype(np.int16)
+            window = np.hanning(len(data_int))
+            return data_int * window
+        except Exception as e:
+            print(f"[DSP Error] Preprocessing: {e}")
             return None
-
-        # Convert to Int16 and apply Hanning window
-        data_int = (data_float * 32767).astype(np.int16)
-        window = np.hanning(len(data_int))
-        return data_int * window
 
     def _calculate_hps(self, data_windowed: np.ndarray) -> list[float]:
         """
@@ -89,6 +98,6 @@ class AudioAnalyzer:
 
             return float(frequency)
 
-        except (ValueError, IndexError):
-            # Errors during numpy operations are caught here
+        except (ValueError, IndexError) as e:
+            print(f"[DSP Error] Process: {e}")
             return 0.0
