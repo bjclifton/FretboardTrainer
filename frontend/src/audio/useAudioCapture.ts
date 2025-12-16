@@ -22,7 +22,6 @@ export const useAudioCapture = ({ bufferSize = 4096, onAudioData }: AudioCapture
   const startCapture = useCallback(async () => {
     setError(null);
     audioBuffer.current = new Float32Array(0);
-
     try {
       // 1. Request Microphone Access
       const stream = await navigator.mediaDevices.getUserMedia({

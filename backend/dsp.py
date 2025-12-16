@@ -8,9 +8,9 @@ class AudioAnalyzer:
     """
     Analyzes raw audio data to find the fundamental frequency using the HPS algorithm.
     """
-    def __init__(self):
+    def __init__(self, rate=44100):
         """Initializes the analyzer with default audio processing parameters."""
-        self.rate = 44100
+        self.rate = rate
         self.chunk = 4096
         self.hps_cycles = 3
         self.silence_threshold = 500000

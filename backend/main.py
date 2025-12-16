@@ -12,13 +12,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-analyzer = AudioAnalyzer()
 
 @app.websocket("/ws/audio")
-async def audio_endpoint(websocket: WebSocket):
+async def audio_endpoint(websocket: WebSocket, rate: int = 44100):
     """Handles WebSocket connections for audio data."""
     await websocket.accept()
     print("Client connected")
+    analyzer = AudioAnalyzer(rate=rate)
 
     try:
         while True:
