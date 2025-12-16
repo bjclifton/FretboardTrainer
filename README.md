@@ -38,26 +38,26 @@ The backend is responsible for real-time audio analysis (DSP) and communicating 
 a.  **Create and Activate a Virtual Environment**:
     It's highly recommended to use a virtual environment to manage Python dependencies.
 
-    ```bash
+```bash
     cd backend
     python -m venv .venv
     # On macOS/Linux
     source .venv/bin/activate
     # On Windows
     # .venv\Scripts\activate
-    ```
+```
 
 b.  **Install Python Dependencies**:
 
-    ```bash
+```bash
     pip install -r requirements.txt
-    ```
+```
 
 c.  **Run the Backend Server**:
 
-    ```bash
+```bash
     uvicorn main:app --reload
-    ```
+```
     The backend server should now be running on `http://127.0.0.1:8000`. You will see output in your terminal indicating that FastAPI is listening.
 
 ### 3. Frontend Setup (React with Vite)
@@ -66,16 +66,16 @@ The frontend is a React application built with Vite, providing the user interfac
 
 a.  **Install Node.js Dependencies**:
 
-    ```bash
+```bash
     cd frontend
     npm install
-    ```
+```
 
 b.  **Run the Frontend Development Server**:
 
-    ```bash
+```bash
     npm run dev
-    ```
+```
     This will start the Vite development server, usually on `http://localhost:5173`. Open this URL in your web browser.
 
 ## Usage
