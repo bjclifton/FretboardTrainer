@@ -1,5 +1,11 @@
 class AudioProcessor extends AudioWorkletProcessor {
+  constructor() {
+    super();
+    console.log('[DEBUG WORKLET] AudioProcessor constructor called');
+  }
+
   process(inputs, outputs, parameters) {
+    console.log('[DEBUG WORKLET] process() called');
     const channelData = inputs[0][0];
 
     if (channelData) {
@@ -9,7 +15,7 @@ class AudioProcessor extends AudioWorkletProcessor {
         sum += channelData[i] * channelData[i];
       }
       const rms = Math.sqrt(sum / channelData.length);
-
+      console.log('[DEBUG WORKLET] Posting audio data and volume');
       // Post a clone of the data, as it will be reused by the browser.
       // Also post the calculated volume
       this.port.postMessage({

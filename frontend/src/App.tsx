@@ -38,7 +38,8 @@ function App() {
   const { isListening, error, startCapture, stopCapture } = useAudioCapture({
     onAudioData: (data) => {
       if (readyState === ReadyState.OPEN && gameState !== 'idle') {
-        sendMessage(data);
+        console.log(`[DEBUG] Sending audio data over WebSocket, size: ${data.byteLength}`);
+        sendMessage(data.buffer);
       }
     }
   });
@@ -49,9 +50,11 @@ function App() {
     const newTarget = generatePrompt(activeStrings);
     setTarget(newTarget);
     setGameState('playing');
+    console.log('[DEBUG] nextTurn -> new target:', newTarget);
   }, [activeStrings]);
 
   const handleSuccess = useCallback(() => {
+    console.log('[DEBUG] handleSuccess called');
     setGameState('success');
     successStreak.current = 0;
 
@@ -63,22 +66,35 @@ function App() {
 
   // --- 3. The Core Game Loop (Triggered by WebSocket messages) ---
   useEffect(() => {
+    console.log(`[DEBUG] Game state changed: ${gameState}`);
+  }, [gameState]);
+
+  useEffect(() => {
+    if (lastJsonMessage) {
+      console.log('[DEBUG] Received WebSocket message:', lastJsonMessage);
+    }
     if (gameState === 'playing' && target && detectedFreq > 0) {
-      if (isCorrectPitch(detectedFreq, target.frequency, 0.03)) { // 3% tolerance
+      const isCorrect = isCorrectPitch(detectedFreq, target.frequency, 0.03);
+      console.log(`[DEBUG] Pitch Check: Detected=${detectedFreq.toFixed(2)}Hz, Target=${target.frequency.toFixed(2)}Hz, Correct=${isCorrect}`);
+
+      if (isCorrect) { // 3% tolerance
         successStreak.current += 1;
       } else {
         successStreak.current = 0;
       }
+      console.log(`[DEBUG] Success streak: ${successStreak.current}`);
 
       // Check for Win
       if (successStreak.current >= REQUIRED_STREAK) {
+        console.log('[DEBUG] Win condition met!');
         // eslint-disable-next-line react-hooks/set-state-in-effect
         handleSuccess();
       }
     }
-  }, [gameState, target, detectedFreq, handleSuccess]);
+  }, [gameState, target, detectedFreq, handleSuccess, lastJsonMessage]);
 
   const toggleGame = () => {
+    console.log('[DEBUG] toggleGame called');
     if (isListening) {
       stopCapture();
       setGameState('idle');

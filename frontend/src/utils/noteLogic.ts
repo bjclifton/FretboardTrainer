@@ -82,5 +82,7 @@ export const isCorrectPitch = (playedHz: number, targetHz: number, toleranceRati
   if (playedHz === 0) return false;
   const min = targetHz * (1 - toleranceRatio);
   const max = targetHz * (1 + toleranceRatio);
-  return playedHz >= min && playedHz <= max;
+  const result = playedHz >= min && playedHz <= max;
+  console.log(`[DEBUG isCorrectPitch] played: ${playedHz}, target: ${targetHz}, range: [${min.toFixed(2)}-${max.toFixed(2)}], result: ${result}`);
+  return result;
 };

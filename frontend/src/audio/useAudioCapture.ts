@@ -20,10 +20,12 @@ export const useAudioCapture = ({ bufferSize = 4096, onAudioData }: AudioCapture
 
 
   const startCapture = useCallback(async () => {
+    console.log('[DEBUG] startCapture called');
     setError(null);
     audioBuffer.current = new Float32Array(0);
     try {
       // 1. Request Microphone Access
+      console.log('[DEBUG] Requesting microphone access');
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           echoCancellation: false, // Turn off fancy processing for cleaner raw signal
@@ -31,29 +33,40 @@ export const useAudioCapture = ({ bufferSize = 4096, onAudioData }: AudioCapture
           noiseSuppression: false
         }
       });
-
+      console.log('[DEBUG] Microphone access granted');
       streamRef.current = stream;
 
       // 2. Initialize Audio Context
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
       const audioCtx = new AudioContext();
+
+      if (audioCtx.state === 'suspended') {
+        console.log('[DEBUG] AudioContext is suspended, resuming...');
+        await audioCtx.resume();
+      }
+
       audioContextRef.current = audioCtx;
+      console.log(`[DEBUG] AudioContext created. State: ${audioCtx.state}, Sample Rate: ${audioCtx.sampleRate}`);
 
       // 3. Add our AudioWorklet processor
       try {
+        console.log('[DEBUG] Loading audio worklet module');
         await audioCtx.audioWorklet.addModule('/audio/audio-processor.js');
+        console.log('[DEBUG] Audio worklet module loaded');
       } catch (e) {
-        console.error('Error loading audio worklet module', e);
+        console.error('[DEBUG] Error loading audio worklet module', e);
         setError('Could not load audio processor.');
         return;
       }
 
       // 4. Create the Source (The Mic)
       const source = audioCtx.createMediaStreamSource(stream);
+      console.log('[DEBUG] MediaStreamSource created');
 
       // 5. Create the Worklet Node
       const workletNode = new AudioWorkletNode(audioCtx, 'audio-processor');
+      console.log('[DEBUG] AudioWorkletNode created');
       workletNodeRef.current = workletNode;
 
 
@@ -65,6 +78,7 @@ export const useAudioCapture = ({ bufferSize = 4096, onAudioData }: AudioCapture
         }
 
         if (event.data.type === 'audio') {
+            console.log(`[DEBUG] Received audio data from worklet, size: ${event.data.data.length}`);
             const audioData = event.data.data as Float32Array;
 
             // Buffer the incoming data
@@ -75,6 +89,7 @@ export const useAudioCapture = ({ bufferSize = 4096, onAudioData }: AudioCapture
 
             // If we have enough data, send it out and reset the buffer
             if (audioBuffer.current.length >= bufferSize) {
+                console.log(`[DEBUG] Buffer full. Sending data chunk of size ${bufferSize}`);
                 // We must clone the data because the buffer will be reused
                 const dataToSend = audioBuffer.current.slice(0, bufferSize);
                 audioBuffer.current = audioBuffer.current.slice(bufferSize);
@@ -91,11 +106,12 @@ export const useAudioCapture = ({ bufferSize = 4096, onAudioData }: AudioCapture
       // doesn't pass any audio through, so you won't hear yourself.
       source.connect(workletNode);
       workletNode.connect(audioCtx.destination);
+      console.log('[DEBUG] Audio graph connected');
 
       setIsListening(true);
 
     } catch (err: unknown) {
-      console.error("Error accessing microphone:", err);
+      console.error("[DEBUG] Error accessing microphone:", err);
       let message = "Could not access microphone";
       if (typeof err === 'object' && err !== null && 'message' in err && typeof (err as { message: unknown }).message === 'string') {
         message = (err as { message: string }).message;
@@ -106,16 +122,20 @@ export const useAudioCapture = ({ bufferSize = 4096, onAudioData }: AudioCapture
   }, [bufferSize, onAudioData]);
 
   const stopCapture = useCallback(() => {
+    console.log('[DEBUG] stopCapture called');
     // Cleanup everything to stop the red "recording" dot in the browser tab
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(track => track.stop());
+      console.log('[DEBUG] MediaStream tracks stopped');
     }
     if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
         audioContextRef.current.close();
+        console.log('[DEBUG] AudioContext closed');
     }
     if (workletNodeRef.current) {
         workletNodeRef.current.port.onmessage = null;
         workletNodeRef.current.disconnect();
+        console.log('[DEBUG] AudioWorkletNode disconnected');
     }
 
     setIsListening(false);
